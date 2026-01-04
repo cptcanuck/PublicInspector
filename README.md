@@ -16,10 +16,31 @@ PublicInspector helps you identify security risks by scanning your AWS infrastru
 
 ## Supported AWS Services
 
+PublicInspector scans **25 AWS services** for public exposure:
+
 - **S3 Buckets**: Checks for public access configurations, ACLs, and policies
 - **CloudFront**: Identifies publicly accessible distributions
 - **Security Groups**: Finds overly permissive inbound rules (0.0.0.0/0)
-- **Load Balancers**: Detects internet-facing ALBs and NLBs
+- **Load Balancers**: Detects internet-facing ALBs, NLBs, and Classic ELBs
+- **API Gateway**: Identifies public REST APIs and HTTP APIs
+- **Route53**: Finds public hosted zones
+- **Elastic IPs**: Lists unattached or public IP addresses
+- **EC2 Instances**: Checks for publicly accessible instances via security groups
+- **Lambda Functions**: Detects function URLs and resource policies allowing public access
+- **App Runner**: Identifies publicly accessible services
+- **Elastic Beanstalk**: Finds public environments
+- **EFS**: Checks for publicly accessible file systems
+- **RDS/Aurora**: Detects publicly accessible databases
+- **DynamoDB**: Identifies tables with public access
+- **OpenSearch/Elasticsearch**: Finds publicly accessible domains
+- **Redshift**: Detects publicly accessible clusters
+- **EBS Snapshots**: Checks for publicly shared snapshots
+- **AMIs**: Identifies publicly shared Amazon Machine Images
+- **ECR**: Finds publicly accessible container repositories
+- **SNS Topics**: Checks for topics with public policies
+- **SQS Queues**: Identifies queues with public policies
+- **EventBridge**: Finds event buses with public access
+- **IAM Access Analyzer**: Leverages AWS IAM Access Analyzer to detect IAM roles/policies with external access
 
 ## Installation
 
@@ -36,6 +57,144 @@ pip install -e .
 - Python 3.8+
 - AWS credentials configured
 - Appropriate IAM permissions (see below)
+
+## Development Setup
+
+### Using DevContainer (Recommended for Windows/VS Code)
+
+PublicInspector includes a DevContainer configuration for consistent development environments, especially useful for Windows users.
+
+#### Prerequisites
+
+1. **Install Required Tools:**
+   - [Visual Studio Code](https://code.visualstudio.com/)
+   - [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Windows/Mac) or Docker Engine (Linux)
+   - [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) for VS Code
+
+2. **Configure AWS Credentials on Your Host Machine:**
+   
+   On Windows, run in PowerShell:
+   ```powershell
+   # Create .aws directory if it doesn't exist
+   mkdir $env:USERPROFILE\.aws -Force
+   
+   # Configure AWS credentials
+   aws configure
+   ```
+   
+   Or manually create `%USERPROFILE%\.aws\credentials`:
+   ```ini
+   [default]
+   aws_access_key_id = YOUR_ACCESS_KEY
+   aws_secret_access_key = YOUR_SECRET_KEY
+   
+   [profile-name]
+   aws_access_key_id = YOUR_ACCESS_KEY
+   aws_secret_access_key = YOUR_SECRET_KEY
+   ```
+   
+   And `%USERPROFILE%\.aws\config`:
+   ```ini
+   [default]
+   region = us-east-1
+   
+   [profile profile-name]
+   region = us-east-1
+   ```
+
+#### Opening the Project in DevContainer
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/cptcanuck/PublicInspector.git
+   cd PublicInspector
+   ```
+
+2. **Open in VS Code:**
+   ```bash
+   code .
+   ```
+
+3. **Start DevContainer:**
+   - VS Code will detect the `.devcontainer` configuration
+   - Click "Reopen in Container" when prompted, or
+   - Press `F1` → "Dev Containers: Reopen in Container"
+
+4. **Wait for Setup:**
+   - The container will build and install all dependencies automatically
+   - This may take a few minutes on first run
+   - The `post-create.sh` script will install the project and run tests
+
+#### What's Included in the DevContainer
+
+- **Python 3.11** with all project dependencies pre-installed
+- **AWS CLI** for credential management and testing
+- **VS Code Extensions:**
+  - Python language support with IntelliSense
+  - Black formatter and isort for code formatting
+  - Flake8 for linting
+  - pytest for testing
+  - AWS Toolkit for AWS resource exploration
+  - GitHub Copilot (if you have access)
+
+#### Using AWS Credentials in DevContainer
+
+The devcontainer automatically mounts your AWS credentials from your host machine:
+
+- **Windows:** `%USERPROFILE%\.aws` → `/home/vscode/.aws`
+- **Linux/Mac:** `~/.aws` → `/home/vscode/.aws`
+
+**Set AWS Profile (Optional):**
+```bash
+# In the devcontainer terminal
+export AWS_PROFILE=your-profile-name
+
+# Or set in VS Code settings.json
+```
+
+**Verify AWS Access:**
+```bash
+# Inside devcontainer
+aws sts get-caller-identity
+```
+
+#### Development Workflow in DevContainer
+
+```bash
+# Run tests
+./run_tests.sh
+
+# Run the tool
+python -m publicinspector.cli --help
+
+# Scan for public resources
+python -m publicinspector.cli scan --services s3
+
+# Format code (automatic on save)
+black publicinspector/
+isort publicinspector/
+
+# Run linter
+flake8 publicinspector/
+```
+
+### Manual Development Setup (Linux/Mac)
+
+If not using DevContainer:
+
+```bash
+# Clone and install
+git clone https://github.com/cptcanuck/PublicInspector.git
+cd PublicInspector
+pip install -e .
+pip install -r requirements-dev.txt
+
+# Configure AWS credentials
+aws configure
+
+# Run tests
+./run_tests.sh
+```
 
 ## IAM Permissions
 
@@ -84,9 +243,42 @@ If you prefer a minimal custom policy instead of managed policies:
         "s3:GetBucketPolicy",
         "s3:GetPublicAccessBlock",
         "cloudfront:ListDistributions",
+        "cloudfront:GetDistribution",
         "ec2:DescribeRegions",
         "ec2:DescribeSecurityGroups",
+        "ec2:DescribeInstances",
+        "ec2:DescribeAddresses",
+        "ec2:DescribeSnapshots",
+        "ec2:DescribeImages",
         "elasticloadbalancing:DescribeLoadBalancers",
+        "elasticloadbalancing:DescribeLoadBalancerAttributes",
+        "apigateway:GET",
+        "route53:ListHostedZones",
+        "lambda:ListFunctions",
+        "lambda:GetPolicy",
+        "lambda:GetFunctionUrlConfig",
+        "apprunner:ListServices",
+        "elasticbeanstalk:DescribeEnvironments",
+        "elasticfilesystem:DescribeFileSystems",
+        "rds:DescribeDBInstances",
+        "rds:DescribeDBClusters",
+        "dynamodb:ListTables",
+        "dynamodb:DescribeTable",
+        "es:ListDomainNames",
+        "es:DescribeDomain",
+        "redshift:DescribeClusters",
+        "ecr:DescribeRepositories",
+        "ecr:GetRepositoryPolicy",
+        "sns:ListTopics",
+        "sns:GetTopicAttributes",
+        "sqs:ListQueues",
+        "sqs:GetQueueAttributes",
+        "events:ListEventBuses",
+        "events:DescribeEventBus",
+        "access-analyzer:ListAnalyzers",
+        "access-analyzer:ListFindings",
+        "access-analyzer:GetFinding",
+        "iam:ListRoleTags",
         "sts:GetCallerIdentity",
         "organizations:ListAccounts"
       ],
@@ -96,7 +288,27 @@ If you prefer a minimal custom policy instead of managed policies:
 }
 ```
 
-**Note**: The `organizations:ListAccounts` permission is only needed if using `--organization` flag.
+**Note**: 
+- The `organizations:ListAccounts` permission is only needed if using `--organization` flag.
+- The `access-analyzer:*` permissions are only needed for IAM Access Analyzer plugin.
+- For IAM Access Analyzer to work, you must have an active Access Analyzer configured in each region you want to scan.
+
+### IAM Access Analyzer Setup
+
+The IAM Access Analyzer plugin requires an active Access Analyzer in the regions you want to scan:
+
+```bash
+# Create an Access Analyzer (one-time setup per region)
+aws accessanalyzer create-analyzer \
+  --analyzer-name PublicInspectorAnalyzer \
+  --type ACCOUNT \
+  --region us-east-1
+
+# Verify it's active
+aws accessanalyzer list-analyzers --region us-east-1
+```
+
+PublicInspector will automatically use any active Access Analyzer it finds in each region to detect IAM roles and policies with external access.
 
 ### IAM Role for Organization Scanning
 
@@ -139,16 +351,62 @@ publicinspector scan --organization --role-name MyCustomRole
 
 ### Output Options
 
+PublicInspector supports multiple output formats:
+
 ```bash
-# Output as JSON
+# Table format (default) - human-readable with colors
+publicinspector scan
+
+# JSON format - raw findings data
 publicinspector scan --format json
 
-# Save to file
-publicinspector scan --output results.json --format json
-
-# Output as CSV
+# CSV format - for spreadsheet analysis
 publicinspector scan --format csv --output report.csv
+
+# Audit format - standardized JSON for compliance/automation
+publicinspector scan --format audit --output audit-report.json
 ```
+
+#### Audit Format
+
+The **audit format** provides a standardized JSON structure ideal for compliance auditing, SIEM integration, and automation:
+
+```json
+{
+  "version": "1.0",
+  "scan_timestamp": "2024-01-15T10:30:00Z",
+  "finding_count": 1,
+  "findings": [
+    {
+      "resource_arn": "arn:aws:s3:::my-public-bucket",
+      "account_id": "123456789012",
+      "region": "us-east-1",
+      "edge_type": "service",
+      "exposure_vector": "s3_bucket_policy",
+      "public_endpoint": "https://my-public-bucket.s3.amazonaws.com",
+      "auth_required": "none",
+      "evidence_source": "aws_s3_api",
+      "last_verified": "2024-01-15T10:30:00Z",
+      "resource_type": "s3_bucket",
+      "resource_name": "my-public-bucket",
+      "severity": "high",
+      "is_exception": false,
+      "tags": {"Environment": "prod"}
+    }
+  ]
+}
+```
+
+**Audit Fields:**
+- `resource_arn`: Full ARN of the resource
+- `account_id`: AWS account ID
+- `region`: AWS region
+- `edge_type`: Exposure type (`network`, `identity`, `service`, `composite`)
+- `exposure_vector`: How the resource is exposed (e.g., `s3_bucket_policy`, `security_group_ingress_rule`)
+- `public_endpoint`: Publicly accessible URL/IP (if applicable)
+- `auth_required`: Authentication requirement (`none`, `aws_iam`, `custom`, or `null` if uncertain)
+- `evidence_source`: AWS API used to detect the finding (e.g., `aws_s3_api`, `aws_iam_access_analyzer`)
+- `last_verified`: ISO timestamp of scan
 
 ### Performance Tuning
 

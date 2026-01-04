@@ -1,0 +1,52 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: Current File",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "PublicInspector: Scan S3",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "publicinspector.cli",
+      "args": [
+        "scan",
+        "--services",
+        "s3",
+        "--regions",
+        "us-east-1"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "PublicInspector: List Plugins",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "publicinspector.cli",
+      "args": [
+        "scan",
+        "--list-plugins"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Python: pytest",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": [
+        "tests/",
+        "-v"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ]
+}

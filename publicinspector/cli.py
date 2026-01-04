@@ -82,9 +82,9 @@ def cli():
 @click.option(
     '--format',
     'output_format',
-    type=click.Choice(['table', 'json', 'csv']),
+    type=click.Choice(['table', 'json', 'csv', 'audit']),
     default='table',
-    help='Output format (default: table)'
+    help='Output format: table (human-readable), json (raw findings), csv (spreadsheet), audit (standardized JSON)'
 )
 @click.option(
     '--output',

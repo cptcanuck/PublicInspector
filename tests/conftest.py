@@ -6,6 +6,27 @@ import boto3
 
 
 @pytest.fixture
+def mock_session():
+    """Create a mock boto3 session for testing plugins."""
+    session = MagicMock()
+    session.region_name = 'us-east-1'
+    
+    # Mock STS client for account ID
+    mock_sts = MagicMock()
+    mock_sts.get_caller_identity.return_value = {
+        'Account': '123456789012'
+    }
+    
+    def client_factory(service, **kwargs):
+        if service == 'sts':
+            return mock_sts
+        return MagicMock()
+    
+    session.client = client_factory
+    return session
+
+
+@pytest.fixture
 def mock_boto3_session():
     """Create a mock boto3 session for testing."""
     session = MagicMock()

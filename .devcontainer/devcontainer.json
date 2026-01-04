@@ -1,0 +1,76 @@
+{
+  "name": "PublicInspector Python Development",
+  "image": "mcr.microsoft.com/devcontainers/python:3.11-bullseye",
+  
+  "features": {
+    "ghcr.io/devcontainers/features/aws-cli:1": {
+      "version": "latest"
+    },
+    "ghcr.io/devcontainers/features/git:1": {
+      "version": "latest"
+    }
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-python.black-formatter",
+        "ms-python.isort",
+        "ms-python.flake8",
+        "charliermarsh.ruff",
+        "amazonwebservices.aws-toolkit-vscode",
+        "GitHub.copilot"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.testing.pytestEnabled": true,
+        "python.testing.unittestEnabled": false,
+        "python.testing.pytestArgs": [
+          "tests"
+        ],
+        "python.formatting.provider": "black",
+        "python.linting.enabled": true,
+        "python.linting.flake8Enabled": true,
+        "python.linting.pylintEnabled": false,
+        "[python]": {
+          "editor.formatOnSave": true,
+          "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"
+          },
+          "editor.defaultFormatter": "ms-python.black-formatter"
+        },
+        "isort.args": ["--profile", "black"],
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+
+  // Mount AWS credentials from Windows host
+  "mounts": [
+    "source=${localEnv:USERPROFILE}${localEnv:HOME}/.aws,target=/home/vscode/.aws,type=bind,consistency=cached"
+  ],
+
+  // Forward environment variables for AWS
+  "remoteEnv": {
+    "AWS_PROFILE": "${localEnv:AWS_PROFILE}",
+    "AWS_REGION": "${localEnv:AWS_REGION:us-east-1}",
+    "AWS_DEFAULT_REGION": "${localEnv:AWS_DEFAULT_REGION:us-east-1}"
+  },
+
+  // Run commands after container is created
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+
+  // Run commands each time the container starts
+  "postStartCommand": "echo 'PublicInspector DevContainer Ready!'",
+
+  // Use 'forwardPorts' to make a list of ports inside the container available locally
+  "forwardPorts": [],
+
+  // Set up non-root user
+  "remoteUser": "vscode",
+
+  // Keep container running for development
+  "overrideCommand": false
+}

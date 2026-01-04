@@ -28,6 +28,7 @@ from publicinspector.plugins.ecr_plugin import ECRPlugin
 from publicinspector.plugins.sns_plugin import SNSPlugin
 from publicinspector.plugins.sqs_plugin import SQSPlugin
 from publicinspector.plugins.eventbridge_plugin import EventBridgePlugin
+from publicinspector.plugins.iam_access_analyzer_plugin import IAMAccessAnalyzerPlugin
 
 
 # List of all plugin classes
@@ -55,6 +56,7 @@ ALL_PLUGINS = [
     SNSPlugin,
     SQSPlugin,
     EventBridgePlugin,
+    IAMAccessAnalyzerPlugin,
 ]
 
 
