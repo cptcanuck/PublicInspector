@@ -152,7 +152,10 @@ def scan(profile, organization, role_name, services, regions, tag_match, ignore_
             default_marker = " (default)" if org_id == default_org else ""
             print(f"\n  {org_id}{default_marker}")
             print(f"    Name: {org_config.get('name', 'N/A')}")
-            print(f"    Profile: {org_config.get('profile', 'N/A')}")
+            if org_config.get('management_profile'):
+                print(f"    Management Profile: {org_config.get('management_profile')}")
+            if org_config.get('profile'):
+                print(f"    Member Profile: {org_config.get('profile')}")
             print(f"    Role: {org_config.get('role_name', 'N/A')}")
             if org_config.get('description'):
                 print(f"    Description: {org_config.get('description')}")
@@ -238,10 +241,19 @@ def scan(profile, organization, role_name, services, regions, tag_match, ignore_
         
         print(f"Using organization: {org_config.get('name', organization)}")
         
-        # Override profile if organization has one
-        if not profile and org_config.get('profile'):
-            profile = org_config.get('profile')
-            print(f"Using profile from organization config: {profile}")
+        # Determine which profile to use for member accounts
+        member_profile = profile  # Command line profile takes precedence
+        if not member_profile and org_config.get('profile'):
+            member_profile = org_config.get('profile')
+            print(f"Using member profile from organization config: {member_profile}")
+        
+        # Determine which profile to use for management account (for listing accounts)
+        management_profile_to_use = org_config.get('management_profile')
+        if management_profile_to_use:
+            print(f"Using management profile for org API calls: {management_profile_to_use}")
+        
+        # Store member profile back to profile variable for later use
+        profile = member_profile
         
         # Override role_name if not specified and organization has one
         if not role_name and org_config.get('role_name'):
@@ -257,13 +269,21 @@ def scan(profile, organization, role_name, services, regions, tag_match, ignore_
             # Scan organization accounts
             print("Fetching organization accounts...")
             
+            # Determine which profile to use for org API calls
+            # Priority: management_profile from org config > profile parameter > default
+            org_api_profile = None
+            if org_config and org_config.get('management_profile'):
+                org_api_profile = org_config.get('management_profile')
+            elif profile:
+                org_api_profile = profile
+            
             # Use organization-specific session if profile specified
-            if profile:
+            if org_api_profile:
                 import boto3
-                session = boto3.Session(profile_name=profile)
+                session = boto3.Session(profile_name=org_api_profile)
                 # Temporarily override default session for organization API calls
                 old_session = boto3.DEFAULT_SESSION
-                boto3.setup_default_session(profile_name=profile)
+                boto3.setup_default_session(profile_name=org_api_profile)
                 accounts = get_organization_accounts()
                 boto3.DEFAULT_SESSION = old_session
             else:
@@ -401,18 +421,22 @@ def tag_account(account_id, name, environment, tags, config_file):
 @cli.command()
 @click.argument('org_id')
 @click.option('--name', required=True, help='Organization name')
-@click.option('--profile', help='AWS profile to use for this organization')
+@click.option('--profile', help='AWS profile to use for member accounts')
+@click.option('--management-profile', help='AWS profile to use for the management/payer account')
 @click.option('--management-account-id', help='Management account ID')
 @click.option('--role-name', default='OrganizationAccountAccessRole', help='IAM role name to assume in member accounts')
 @click.option('--description', help='Description of this organization')
 @click.option('--set-default', is_flag=True, help='Set this as the default organization')
 @click.option('--config', 'config_file', default='publicinspector-config.json', help='Configuration file path')
-def add_org(org_id, name, profile, management_account_id, role_name, description, set_default, config_file):
+def add_org(org_id, name, profile, management_profile, management_account_id, role_name, description, set_default, config_file):
     """
     Add or update an organization configuration.
     
     Examples:
     
+        # Add organization "AW" with separate profiles for payer and member accounts
+        publicinspector add-org AW --name "AW Organization" --management-profile AW-Payer-ReadOnly --profile ReadOnly
+        
         # Add a production organization
         publicinspector add-org prod-org --name "Production Organization" --profile prod-profile --set-default
         
@@ -425,6 +449,7 @@ def add_org(org_id, name, profile, management_account_id, role_name, description
         org_id=org_id,
         name=name,
         profile=profile,
+        management_profile=management_profile,
         management_account_id=management_account_id,
         role_name=role_name,
         description=description or ''
@@ -436,8 +461,10 @@ def add_org(org_id, name, profile, management_account_id, role_name, description
     if config.save_config():
         print(f"Successfully added/updated organization '{org_id}'")
         print(f"  Name: {name}")
+        if management_profile:
+            print(f"  Management Profile: {management_profile}")
         if profile:
-            print(f"  Profile: {profile}")
+            print(f"  Member Profile: {profile}")
         print(f"  Role: {role_name}")
         if set_default:
             print(f"  Set as default organization")
@@ -472,7 +499,10 @@ def list_orgs(config_file):
         default_marker = " (default)" if org_id == default_org else ""
         print(f"\n  {org_id}{default_marker}")
         print(f"    Name: {org_config.get('name', 'N/A')}")
-        print(f"    Profile: {org_config.get('profile', 'N/A')}")
+        if org_config.get('management_profile'):
+            print(f"    Management Profile: {org_config.get('management_profile')}")
+        if org_config.get('profile'):
+            print(f"    Member Profile: {org_config.get('profile')}")
         print(f"    Role: {org_config.get('role_name', 'N/A')}")
         if org_config.get('management_account_id'):
             print(f"    Management Account: {org_config.get('management_account_id')}")

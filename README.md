@@ -257,6 +257,69 @@ publicinspector tag-account 123456789012 --environment production --config /path
 }
 ```
 
+### Multiple Organization Configuration
+
+PublicInspector supports multiple AWS Organizations with separate profiles for management and member accounts.
+
+#### Adding Organizations
+
+```bash
+# Add organization "AW" with separate profiles for payer and member accounts
+publicinspector add-org AW \
+  --name "AW Organization" \
+  --management-profile AW-Payer-ReadOnly \
+  --profile ReadOnly
+
+# Add another organization with single profile
+publicinspector add-org prod-org \
+  --name "Production Org" \
+  --profile prod-profile \
+  --set-default
+```
+
+#### Organization Configuration Format
+
+```json
+{
+  "organizations": {
+    "AW": {
+      "name": "AW Organization",
+      "management_profile": "AW-Payer-ReadOnly",
+      "profile": "ReadOnly",
+      "role_name": "OrganizationAccountAccessRole",
+      "description": "Uses separate profiles for payer and member accounts"
+    },
+    "prod-org": {
+      "name": "Production Organization",
+      "profile": "prod-profile",
+      "management_profile": null,
+      "role_name": "OrganizationAccountAccessRole",
+      "description": "Uses single profile for all operations"
+    }
+  },
+  "default_organization": "prod-org"
+}
+```
+
+**Key Points:**
+- `management_profile`: AWS profile used to access the management/payer account for listing organization accounts
+- `profile`: AWS profile used to access member accounts (via role assumption)
+- If `management_profile` is not specified, `profile` is used for both operations
+- Command-line `--profile` option overrides the organization's member account profile
+
+#### Scanning Organizations
+
+```bash
+# Scan organization using configured profiles
+publicinspector scan --org AW
+
+# List configured organizations
+publicinspector list-orgs
+
+# Scan with --list-orgs to see available organizations
+publicinspector scan --list-orgs
+```
+
 ## Architecture
 
 PublicInspector uses a plugin-based architecture designed for extensibility:

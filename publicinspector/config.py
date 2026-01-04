@@ -62,6 +62,7 @@ class Config:
                 'default': {
                     'name': 'Default Organization',
                     'profile': None,
+                    'management_profile': None,
                     'management_account_id': None,
                     'role_name': 'OrganizationAccountAccessRole',
                     'description': 'Default organization configuration'
@@ -320,15 +321,17 @@ class Config:
     
     # Organization methods
     
-    def add_organization(self, org_id, name, profile=None, management_account_id=None, 
-                        role_name='OrganizationAccountAccessRole', description=''):
+    def add_organization(self, org_id, name, profile=None, management_profile=None, 
+                        management_account_id=None, role_name='OrganizationAccountAccessRole', 
+                        description=''):
         """
         Add or update an organization configuration.
         
         Args:
             org_id: Unique identifier for this organization (e.g., 'prod-org', 'dev-org')
             name: Human-readable name for the organization
-            profile: AWS profile to use for this organization (optional)
+            profile: AWS profile to use for member accounts (optional)
+            management_profile: AWS profile to use for the management/payer account (optional)
             management_account_id: Management account ID (optional)
             role_name: IAM role name to assume in member accounts
             description: Description of this organization
@@ -339,6 +342,7 @@ class Config:
         self.config_data['organizations'][org_id] = {
             'name': name,
             'profile': profile,
+            'management_profile': management_profile,
             'management_account_id': management_account_id,
             'role_name': role_name,
             'description': description

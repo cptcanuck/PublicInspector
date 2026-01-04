@@ -38,5 +38,27 @@
       "expiration_date": "2024-02-01",
       "added_by": "jane.smith@example.com"
     }
-  ]
+  ],
+  "region_lists": {
+    "all_used": ["us-east-1", "us-west-2", "eu-west-1"],
+    "us_only": ["us-east-1", "us-east-2", "us-west-1", "us-west-2"],
+    "eu_only": ["eu-west-1", "eu-west-2", "eu-central-1"]
+  },
+  "organizations": {
+    "AW": {
+      "name": "AW Organization",
+      "management_profile": "AW-Payer-ReadOnly",
+      "profile": "ReadOnly",
+      "role_name": "OrganizationAccountAccessRole",
+      "description": "Example: AW org uses AW-Payer-ReadOnly for management account and ReadOnly for member accounts"
+    },
+    "prod-org": {
+      "name": "Production Organization",
+      "profile": "prod-profile",
+      "management_profile": null,
+      "role_name": "OrganizationAccountAccessRole",
+      "description": "Production organization using single profile"
+    }
+  },
+  "default_organization": "prod-org"
 }
