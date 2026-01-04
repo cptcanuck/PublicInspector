@@ -21,6 +21,12 @@ class AWSBasePlugin(BasePlugin):
         """
         super().__init__(session, account_id, region)
         
+        # Handle None session for discovery purposes
+        if session is None:
+            self.account_id = account_id or 'unknown'
+            self.region = region or 'us-east-1'
+            return
+        
         # If account_id not provided, try to get it
         if not self.account_id:
             try:

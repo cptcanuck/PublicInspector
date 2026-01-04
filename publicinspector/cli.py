@@ -31,14 +31,48 @@ def cli():
     default=None
 )
 @click.option(
-    '--organization',
-    is_flag=True,
-    help='Scan all accounts in the AWS organization'
+    '--org', '--organization',
+    'organization',
+    default=None,
+    help='Scan AWS organization. Use organization ID from config (e.g., "prod-org") or "default" to use default org, or use flag without value to auto-detect'
 )
 @click.option(
     '--role-name',
-    default='OrganizationAccountAccessRole',
-    help='IAM role name to assume in organization accounts (default: OrganizationAccountAccessRole)'
+    default=None,
+    help='IAM role name to assume in organization accounts (overrides organization config)'
+)
+@click.option(
+    '--services', '--service',
+    'services',
+    default='all',
+    help='Comma-separated list of services to scan, or "all" for all services. Examples: s3,cloudfront or all'
+)
+@click.option(
+    '--regions', '--region',
+    'regions',
+    default=None,
+    help='Comma-separated list of regions, a named region list from config, or "all". Examples: us-east-1,us-west-2 or all_used'
+)
+@click.option(
+    '--tag-match', '--tag_match',
+    'tag_match',
+    default=None,
+    help='Filter accounts by environment tag value (e.g., prod, production, non-production)'
+)
+@click.option(
+    '--list-services',
+    is_flag=True,
+    help='List available services and exit'
+)
+@click.option(
+    '--list-regions',
+    is_flag=True,
+    help='List available region lists from config and exit'
+)
+@click.option(
+    '--list-orgs',
+    is_flag=True,
+    help='List available organizations from config and exit'
 )
 @click.option(
     '--format',
@@ -68,22 +102,29 @@ def cli():
 @click.option(
     '--list-plugins',
     is_flag=True,
-    help='List available scanner plugins and exit'
+    help='List available scanner plugins and exit (deprecated: use --list-services)'
 )
-def scan(profile, organization, role_name, output_format, output, max_workers, config_file, list_plugins):
+def scan(profile, organization, role_name, services, regions, tag_match, list_services, list_regions, list_orgs,
+         output_format, output, max_workers, config_file, list_plugins):
     """
     Scan AWS accounts for publicly exposed resources.
     
     Examples:
     
-        # Scan current AWS account (uses default credentials)
+        # Scan current AWS account for all services
         publicinspector scan
         
-        # Scan using a specific AWS profile
-        publicinspector scan --profile my-profile
+        # Scan specific service
+        publicinspector scan --service s3
         
-        # Scan all accounts in an AWS organization
-        publicinspector scan --organization
+        # Scan organization accounts tagged as production, only S3 in specific regions
+        publicinspector scan --org prod-org --tag-match prod --service s3 --regions all_used
+        
+        # Scan default organization
+        publicinspector scan --org default
+        
+        # Scan using a specific AWS profile
+        publicinspector scan --profile my-profile --service s3,cloudfront
         
         # Output results as JSON
         publicinspector scan --format json --output results.json
@@ -91,29 +132,158 @@ def scan(profile, organization, role_name, output_format, output, max_workers, c
     
     # Initialize scanner
     scanner = Scanner(max_workers=max_workers, config_file=config_file)
+    config = scanner.get_config()
     
-    # List plugins if requested
-    if list_plugins:
-        print("Available scanner plugins:")
-        for plugin_name in scanner.get_available_plugins():
-            print(f"  - {plugin_name}")
+    # List organizations if requested
+    if list_orgs:
+        print("Available organizations from configuration:")
+        organizations = config.get_all_organizations()
+        default_org = config.get_default_organization()
+        
+        for org_id, org_config in organizations.items():
+            default_marker = " (default)" if org_id == default_org else ""
+            print(f"\n  {org_id}{default_marker}")
+            print(f"    Name: {org_config.get('name', 'N/A')}")
+            print(f"    Profile: {org_config.get('profile', 'N/A')}")
+            print(f"    Role: {org_config.get('role_name', 'N/A')}")
+            if org_config.get('description'):
+                print(f"    Description: {org_config.get('description')}")
         sys.exit(0)
+    
+    # List region lists if requested
+    if list_regions:
+        print("Available region lists from configuration:")
+        region_lists = config.get_all_region_lists()
+        for list_name, region_list in region_lists.items():
+            print(f"  {list_name}: {', '.join(region_list)}")
+        sys.exit(0)
+    
+    # List services if requested
+    if list_services or list_plugins:
+        print("Available services to scan:")
+        print("  all - Scan all services")
+        print("")
+        print("Individual services:")
+        
+        # Get service mapping
+        service_map = scanner.get_service_mapping()
+        for service_key in sorted(service_map.keys()):
+            plugin_classes = service_map[service_key]
+            plugin_names = [cls.__name__ for cls in plugin_classes]
+            print(f"  {service_key:<25} - {', '.join(plugin_names)}")
+        
+        sys.exit(0)
+    
+    # Parse services to scan
+    services_to_scan = []
+    if services.lower() == 'all':
+        services_to_scan = None  # Scan all
+    else:
+        services_to_scan = [s.strip() for s in services.split(',')]
+    
+    # Parse regions to scan
+    regions_to_scan = None
+    if regions:
+        if regions.lower() == 'all':
+            regions_to_scan = None  # Scan all regions
+        elif ',' in regions:
+            # Comma-separated list of regions
+            regions_to_scan = [r.strip() for r in regions.split(',')]
+        else:
+            # Try to load named region list from config
+            region_list = config.get_region_list(regions)
+            if region_list:
+                regions_to_scan = region_list
+                print(f"Using region list '{regions}': {', '.join(region_list)}")
+            else:
+                # Treat as single region
+                regions_to_scan = [regions]
+    
+    # Set scanner filters
+    if services_to_scan:
+        scanner.set_service_filter(services_to_scan)
+    
+    if regions_to_scan:
+        scanner.set_region_filter(regions_to_scan)
+    
+    # Determine organization configuration
+    org_config = None
+    scan_organization = False
+    
+    if organization is not None:
+        scan_organization = True
+        
+        # If organization is empty string (flag used without value), use default
+        if organization == '':
+            organization = config.get_default_organization()
+        
+        org_config = config.get_organization(organization)
+        if not org_config:
+            print(f"Error: Organization '{organization}' not found in configuration")
+            print("Use 'publicinspector list-orgs' to see available organizations")
+            print("Use 'publicinspector add-org' to add a new organization")
+            sys.exit(1)
+        
+        print(f"Using organization: {org_config.get('name', organization)}")
+        
+        # Override profile if organization has one
+        if not profile and org_config.get('profile'):
+            profile = org_config.get('profile')
+            print(f"Using profile from organization config: {profile}")
+        
+        # Override role_name if not specified and organization has one
+        if not role_name and org_config.get('role_name'):
+            role_name = org_config.get('role_name')
+    
+    # Default role name if still not set
+    if not role_name:
+        role_name = 'OrganizationAccountAccessRole'
     
     # Determine which accounts to scan
     try:
-        if organization:
+        if scan_organization:
             # Scan organization accounts
             print("Fetching organization accounts...")
-            accounts = get_organization_accounts()
+            
+            # Use organization-specific session if profile specified
+            if profile:
+                import boto3
+                session = boto3.Session(profile_name=profile)
+                # Temporarily override default session for organization API calls
+                old_session = boto3.DEFAULT_SESSION
+                boto3.setup_default_session(profile_name=profile)
+                accounts = get_organization_accounts()
+                boto3.DEFAULT_SESSION = old_session
+            else:
+                accounts = get_organization_accounts()
+            
             print(f"Found {len(accounts)} active accounts in organization")
             
             # Update config with organization account info
-            config = scanner.get_config()
             for account in accounts:
                 account_id = account['Id']
                 account_name = account['Name']
                 config.set_account_metadata(account_id, name=account_name)
             config.save_config()
+            
+            # Filter accounts by tag if specified
+            if tag_match:
+                filtered_accounts = []
+                for account in accounts:
+                    account_id = account['Id']
+                    env_tag = config.get_account_tag(account_id, 'environment')
+                    
+                    # Match tag (case insensitive partial match)
+                    if env_tag and tag_match.lower() in env_tag.lower():
+                        filtered_accounts.append(account)
+                
+                accounts = filtered_accounts
+                print(f"Filtered to {len(accounts)} accounts matching tag '{tag_match}'")
+                
+                if len(accounts) == 0:
+                    print("No accounts match the specified tag filter.")
+                    print("Tip: Use 'publicinspector tag-account' to tag accounts first.")
+                    sys.exit(0)
             
             # Create sessions for each account
             sessions_with_ids = []
@@ -151,6 +321,8 @@ def scan(profile, organization, role_name, output_format, output, max_workers, c
     
     except Exception as e:
         print(f"Error: {e}")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
     
     # Format and output results
@@ -209,6 +381,138 @@ def tag_account(account_id, name, environment, tags, config_file):
             print(f"  Additional tags:")
             for key, value in tag_dict.items():
                 print(f"    {key}: {value}")
+    else:
+        print(f"Error saving configuration")
+        sys.exit(1)
+
+
+@cli.command()
+@click.argument('org_id')
+@click.option('--name', required=True, help='Organization name')
+@click.option('--profile', help='AWS profile to use for this organization')
+@click.option('--management-account-id', help='Management account ID')
+@click.option('--role-name', default='OrganizationAccountAccessRole', help='IAM role name to assume in member accounts')
+@click.option('--description', help='Description of this organization')
+@click.option('--set-default', is_flag=True, help='Set this as the default organization')
+@click.option('--config', 'config_file', default='publicinspector-config.json', help='Configuration file path')
+def add_org(org_id, name, profile, management_account_id, role_name, description, set_default, config_file):
+    """
+    Add or update an organization configuration.
+    
+    Examples:
+    
+        # Add a production organization
+        publicinspector add-org prod-org --name "Production Organization" --profile prod-profile --set-default
+        
+        # Add a development organization
+        publicinspector add-org dev-org --name "Development Organization" --profile dev-profile
+    """
+    config = Config(config_file)
+    
+    config.add_organization(
+        org_id=org_id,
+        name=name,
+        profile=profile,
+        management_account_id=management_account_id,
+        role_name=role_name,
+        description=description or ''
+    )
+    
+    if set_default:
+        config.set_default_organization(org_id)
+    
+    if config.save_config():
+        print(f"Successfully added/updated organization '{org_id}'")
+        print(f"  Name: {name}")
+        if profile:
+            print(f"  Profile: {profile}")
+        print(f"  Role: {role_name}")
+        if set_default:
+            print(f"  Set as default organization")
+    else:
+        print(f"Error saving configuration")
+        sys.exit(1)
+
+
+@cli.command()
+@click.option('--config', 'config_file', default='publicinspector-config.json', help='Configuration file path')
+def list_orgs(config_file):
+    """
+    List all configured organizations.
+    
+    Examples:
+    
+        # List all organizations
+        publicinspector list-orgs
+    """
+    config = Config(config_file)
+    
+    organizations = config.get_all_organizations()
+    default_org = config.get_default_organization()
+    
+    if not organizations:
+        print("No organizations configured")
+        print("Use 'publicinspector add-org' to add an organization")
+        return
+    
+    print("Configured organizations:")
+    for org_id, org_config in organizations.items():
+        default_marker = " (default)" if org_id == default_org else ""
+        print(f"\n  {org_id}{default_marker}")
+        print(f"    Name: {org_config.get('name', 'N/A')}")
+        print(f"    Profile: {org_config.get('profile', 'N/A')}")
+        print(f"    Role: {org_config.get('role_name', 'N/A')}")
+        if org_config.get('management_account_id'):
+            print(f"    Management Account: {org_config.get('management_account_id')}")
+        if org_config.get('description'):
+            print(f"    Description: {org_config.get('description')}")
+
+
+@cli.command()
+@click.argument('org_id')
+@click.option('--config', 'config_file', default='publicinspector-config.json', help='Configuration file path')
+def remove_org(org_id, config_file):
+    """
+    Remove an organization configuration.
+    
+    Examples:
+    
+        # Remove an organization
+        publicinspector remove-org dev-org
+    """
+    config = Config(config_file)
+    
+    if config.remove_organization(org_id):
+        config.save_config()
+        print(f"Successfully removed organization '{org_id}'")
+    else:
+        print(f"Organization '{org_id}' not found")
+        sys.exit(1)
+
+
+@cli.command()
+@click.argument('org_id')
+@click.option('--config', 'config_file', default='publicinspector-config.json', help='Configuration file path')
+def set_default_org(org_id, config_file):
+    """
+    Set the default organization.
+    
+    Examples:
+    
+        # Set default organization
+        publicinspector set-default-org prod-org
+    """
+    config = Config(config_file)
+    
+    # Check if organization exists
+    if not config.get_organization(org_id):
+        print(f"Error: Organization '{org_id}' not found")
+        sys.exit(1)
+    
+    config.set_default_organization(org_id)
+    
+    if config.save_config():
+        print(f"Successfully set '{org_id}' as default organization")
     else:
         print(f"Error saving configuration")
         sys.exit(1)

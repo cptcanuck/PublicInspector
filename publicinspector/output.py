@@ -53,17 +53,30 @@ class OutputFormatter:
             severity = finding.get('severity', 'info')
             severity_colored = self._color_severity(severity)
             
+            # Get resource details
+            details = finding.get('details', {})
+            tags = details.get('tags', {})
+            
+            # Format tags for display
+            tag_str = ''
+            if tags:
+                tag_items = [f"{k}={v}" for k, v in list(tags.items())[:2]]  # Show first 2 tags
+                tag_str = ', '.join(tag_items)
+                if len(tags) > 2:
+                    tag_str += '...'
+            
             row = [
                 finding.get('account_id', 'unknown'),
                 finding.get('region', 'unknown'),
                 finding.get('resource_type', 'unknown'),
                 finding.get('resource_name', 'unknown'),
                 severity_colored,
-                finding.get('public_access', 'unknown')
+                finding.get('public_access', 'unknown'),
+                tag_str
             ]
             table_data.append(row)
         
-        headers = ['Account', 'Region', 'Type', 'Resource', 'Severity', 'Public Access']
+        headers = ['Account', 'Region', 'Type', 'Resource', 'Severity', 'Public Access', 'Tags']
         
         return tabulate(table_data, headers=headers, tablefmt='grid')
     
@@ -77,21 +90,38 @@ class OutputFormatter:
             return ""
         
         # CSV header
-        headers = ['Account ID', 'Region', 'Resource Type', 'Resource Name', 'Severity', 'Public Access']
+        headers = ['Account ID', 'Region', 'Resource Type', 'Resource Name', 'Resource ID', 
+                   'Severity', 'Public Access', 'Tags', 'Details']
         lines = [','.join(headers)]
         
         # CSV rows
         for finding in findings:
+            details = finding.get('details', {})
+            tags = details.get('tags', {})
+            
+            # Format tags
+            tag_str = '; '.join([f"{k}={v}" for k, v in tags.items()]) if tags else ''
+            
+            # Format additional details (exclude tags)
+            detail_items = []
+            for key, value in details.items():
+                if key != 'tags' and value:
+                    detail_items.append(f"{key}={value}")
+            detail_str = '; '.join(detail_items)
+            
             row = [
                 finding.get('account_id', 'unknown'),
                 finding.get('region', 'unknown'),
                 finding.get('resource_type', 'unknown'),
                 finding.get('resource_name', 'unknown'),
+                finding.get('resource_id', 'unknown'),
                 finding.get('severity', 'unknown'),
-                finding.get('public_access', 'unknown')
+                finding.get('public_access', 'unknown'),
+                tag_str,
+                detail_str
             ]
-            # Escape commas in fields
-            row = [f'"{field}"' if ',' in str(field) else str(field) for field in row]
+            # Escape commas and quotes in fields
+            row = [f'"{str(field).replace('"', '""')}"' for field in row]
             lines.append(','.join(row))
         
         return '\n'.join(lines)

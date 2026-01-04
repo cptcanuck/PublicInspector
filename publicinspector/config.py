@@ -51,7 +51,23 @@ class Config:
         return {
             'version': '1.0',
             'accounts': {},
-            'exceptions': []
+            'exceptions': [],
+            'region_lists': {
+                'all_used': ['us-east-1', 'us-west-2', 'eu-west-1'],
+                'us_only': ['us-east-1', 'us-east-2', 'us-west-1', 'us-west-2'],
+                'eu_only': ['eu-west-1', 'eu-west-2', 'eu-central-1'],
+                'common': ['us-east-1', 'us-west-2', 'eu-west-1', 'ap-southeast-1']
+            },
+            'organizations': {
+                'default': {
+                    'name': 'Default Organization',
+                    'profile': None,
+                    'management_account_id': None,
+                    'role_name': 'OrganizationAccountAccessRole',
+                    'description': 'Default organization configuration'
+                }
+            },
+            'default_organization': 'default'
         }
     
     def save_config(self):
@@ -263,3 +279,122 @@ class Config:
                     pass
         
         return expired
+    
+    # Region list methods
+    
+    def get_region_list(self, list_name):
+        """
+        Get a named region list from configuration.
+        
+        Args:
+            list_name: Name of the region list
+            
+        Returns:
+            List of region names, or None if not found
+        """
+        region_lists = self.config_data.get('region_lists', {})
+        return region_lists.get(list_name)
+    
+    def set_region_list(self, list_name, regions):
+        """
+        Set a named region list in configuration.
+        
+        Args:
+            list_name: Name of the region list
+            regions: List of region names
+        """
+        if 'region_lists' not in self.config_data:
+            self.config_data['region_lists'] = {}
+        
+        self.config_data['region_lists'][list_name] = regions
+    
+    def get_all_region_lists(self):
+        """
+        Get all defined region lists.
+        
+        Returns:
+            Dictionary of region lists
+        """
+        return self.config_data.get('region_lists', {})
+    
+    # Organization methods
+    
+    def add_organization(self, org_id, name, profile=None, management_account_id=None, 
+                        role_name='OrganizationAccountAccessRole', description=''):
+        """
+        Add or update an organization configuration.
+        
+        Args:
+            org_id: Unique identifier for this organization (e.g., 'prod-org', 'dev-org')
+            name: Human-readable name for the organization
+            profile: AWS profile to use for this organization (optional)
+            management_account_id: Management account ID (optional)
+            role_name: IAM role name to assume in member accounts
+            description: Description of this organization
+        """
+        if 'organizations' not in self.config_data:
+            self.config_data['organizations'] = {}
+        
+        self.config_data['organizations'][org_id] = {
+            'name': name,
+            'profile': profile,
+            'management_account_id': management_account_id,
+            'role_name': role_name,
+            'description': description
+        }
+    
+    def get_organization(self, org_id):
+        """
+        Get organization configuration by ID.
+        
+        Args:
+            org_id: Organization identifier
+            
+        Returns:
+            Organization configuration dict or None
+        """
+        orgs = self.config_data.get('organizations', {})
+        return orgs.get(org_id)
+    
+    def get_all_organizations(self):
+        """
+        Get all organization configurations.
+        
+        Returns:
+            Dictionary of organizations
+        """
+        return self.config_data.get('organizations', {})
+    
+    def set_default_organization(self, org_id):
+        """
+        Set the default organization to use.
+        
+        Args:
+            org_id: Organization identifier
+        """
+        self.config_data['default_organization'] = org_id
+    
+    def get_default_organization(self):
+        """
+        Get the default organization ID.
+        
+        Returns:
+            Organization ID string
+        """
+        return self.config_data.get('default_organization', 'default')
+    
+    def remove_organization(self, org_id):
+        """
+        Remove an organization configuration.
+        
+        Args:
+            org_id: Organization identifier
+            
+        Returns:
+            True if removed, False if not found
+        """
+        if 'organizations' in self.config_data:
+            if org_id in self.config_data['organizations']:
+                del self.config_data['organizations'][org_id]
+                return True
+        return False

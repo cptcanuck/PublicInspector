@@ -29,6 +29,8 @@ class Scanner:
         self.plugin_loader = PluginLoader()
         self.plugin_loader.discover_plugins()
         self.config = Config(config_file)
+        self.service_filter = None
+        self.region_filter = None
     
     def scan_account(self, session, account_id=None):
         """
@@ -59,6 +61,15 @@ class Scanner:
         
         # Load plugins for this session
         plugins = self.plugin_loader.load_plugins(session, account_id)
+        
+        # Filter by service if specified
+        if self.service_filter:
+            filtered_plugins = []
+            for plugin in plugins:
+                service_name = plugin.get_service_name()
+                if service_name in self.service_filter:
+                    filtered_plugins.append(plugin)
+            plugins = filtered_plugins
         
         print(f"Found {len(plugins)} plugins to run")
         
@@ -191,3 +202,61 @@ class Scanner:
             Config object
         """
         return self.config
+    
+    def set_service_filter(self, services):
+        """
+        Set filter to only scan specific services.
+        
+        Args:
+            services: List of service names to scan
+        """
+        self.service_filter = services
+    
+    def set_region_filter(self, regions):
+        """
+        Set filter to only scan specific regions.
+        
+        Args:
+            regions: List of region names to scan, or a named region list from config
+        """
+        self.region_filter = regions
+    
+    def get_regions_to_scan(self, plugin):
+        """
+        Get list of regions to scan for a plugin.
+        
+        Args:
+            plugin: Plugin instance
+            
+        Returns:
+            List of region names
+        """
+        if self.region_filter:
+            return self.region_filter
+        else:
+            # Use plugin's default region logic
+            return plugin.get_all_regions()
+    
+    def get_service_mapping(self):
+        """
+        Get mapping of service names to plugin classes.
+        
+        Returns:
+            Dictionary mapping service names to plugin classes
+        """
+        service_map = {}
+        
+        for plugin_class in self.plugin_loader.plugin_classes:
+            try:
+                # Create temporary instance to get service name
+                temp_plugin = plugin_class(None, None, None)
+                service_name = temp_plugin.get_service_name()
+                
+                if service_name not in service_map:
+                    service_map[service_name] = []
+                service_map[service_name].append(plugin_class)
+            except Exception:
+                # Skip plugins that can't be instantiated
+                pass
+        
+        return service_map

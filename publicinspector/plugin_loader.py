@@ -91,11 +91,7 @@ class PluginLoader:
         """
         names = []
         for plugin_class in self.plugin_classes:
-            try:
-                # Create a temporary instance to get the name
-                temp_plugin = plugin_class(None, None, None)
-                names.append(temp_plugin.get_name())
-            except Exception:
-                names.append(plugin_class.__name__)
+            # Get the class name as a fallback
+            names.append(plugin_class.__name__)
         
         return names
