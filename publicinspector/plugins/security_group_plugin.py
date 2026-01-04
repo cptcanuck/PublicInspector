@@ -155,18 +155,32 @@ class SecurityGroupPlugin(AWSBasePlugin):
         # Common risky ports
         risky_ports = [22, 3389, 3306, 5432, 27017, 6379, 1433]
         
-        try:
-            from_port_int = int(from_port)
-            to_port_int = int(to_port)
-            
+        # Only check risky ports if from_port and to_port are numeric
+        if isinstance(from_port, int) and isinstance(to_port, int):
             for risky_port in risky_ports:
-                if from_port_int <= risky_port <= to_port_int:
+                if from_port <= risky_port <= to_port:
                     return 'high'
-        except (ValueError, TypeError):
-            pass
+        else:
+            # If ports are not integers, try to convert them safely
+            try:
+                from_port_int = int(from_port)
+                to_port_int = int(to_port)
+                
+                for risky_port in risky_ports:
+                    if from_port_int <= risky_port <= to_port_int:
+                        return 'high'
+            except (ValueError, TypeError):
+                # If conversion fails, treat as medium severity
+                return 'medium'
         
         # HTTP/HTTPS is lower risk
-        if (from_port == 80 or from_port == 443) and (to_port == 80 or to_port == 443):
-            return 'low'
+        try:
+            from_port_check = int(from_port) if not isinstance(from_port, int) else from_port
+            to_port_check = int(to_port) if not isinstance(to_port, int) else to_port
+            
+            if (from_port_check == 80 or from_port_check == 443) and (to_port_check == 80 or to_port_check == 443):
+                return 'low'
+        except (ValueError, TypeError):
+            pass
         
         return 'medium'

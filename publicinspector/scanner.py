@@ -61,7 +61,7 @@ class Scanner:
         print(f"Scanning account {account_id} (environment: {environment})...")
         
         # Load plugins for this session
-        plugins = self.plugin_loader.load_plugins(session, account_id)
+        plugins = self.plugin_loader.load_plugins(session, account_id, self.region)
         
         # Filter by service if specified
         if self.service_filter:

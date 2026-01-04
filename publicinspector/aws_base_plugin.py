@@ -45,6 +45,10 @@ class AWSBasePlugin(BasePlugin):
 
     def get_all_regions(self):
         """Get list of all available AWS regions."""
+        # Handle None session (for discovery)
+        if self.session is None:
+            return ['us-east-1']
+        
         ec2 = self.session.client('ec2', region_name='us-east-1')
         try:
             regions = ec2.describe_regions()['Regions']

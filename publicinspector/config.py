@@ -2,7 +2,7 @@
 
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class Config:
@@ -218,7 +218,8 @@ class Config:
                 if exception.get('expiration_date'):
                     try:
                         expiration = datetime.strptime(exception['expiration_date'], '%Y-%m-%d')
-                        if datetime.now() > expiration:
+                        now = datetime.now(timezone.utc).replace(tzinfo=None)  # Use UTC
+                        if now > expiration:
                             is_expired = True
                     except Exception:
                         pass
@@ -267,7 +268,7 @@ class Config:
             List of expired exception dictionaries
         """
         expired = []
-        now = datetime.now()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)  # Use UTC but convert to naive for comparison
         
         for exception in self.config_data['exceptions']:
             if exception.get('expiration_date'):

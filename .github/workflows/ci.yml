@@ -6,10 +6,15 @@ on:
   pull_request:
     branches: [ main, develop ]
 
+permissions:
+  contents: read
+
 jobs:
   lint:
     name: Lint Code
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     
     steps:
     - uses: actions/checkout@v4
@@ -43,6 +48,8 @@ jobs:
   security:
     name: Security Scan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     
     steps:
     - uses: actions/checkout@v4
@@ -78,6 +85,8 @@ jobs:
   test:
     name: Run Tests
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       matrix:
         python-version: ['3.8', '3.9', '3.10', '3.11']
@@ -110,6 +119,8 @@ jobs:
   typecheck:
     name: Type Checking
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     
     steps:
     - uses: actions/checkout@v4
@@ -132,6 +143,8 @@ jobs:
   package:
     name: Verify Package Build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     
     steps:
     - uses: actions/checkout@v4
