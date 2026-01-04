@@ -192,38 +192,10 @@ def scan(profile, organization, role_name, services, regions, tag_match, ignore_
     else:
         services_to_scan = [s.strip() for s in services.split(',')]
     
-    # Parse regions to scan
-    regions_to_scan = None
-    if regions:
-        if regions.lower() == 'all':
-            regions_to_scan = None  # Scan all regions
-        elif ',' in regions:
-            # Comma-separated list of regions
-            regions_to_scan = [r.strip() for r in regions.split(',')]
-        else:
-            # Try to load named region list from config
-            region_list = config.get_region_list(regions)
-            if region_list:
-                regions_to_scan = region_list
-                print(f"Using region list '{regions}': {', '.join(region_list)}")
-            else:
-                # Treat as single region
-                regions_to_scan = [regions]
-    
-    # Set scanner filters
-    if services_to_scan:
-        scanner.set_service_filter(services_to_scan)
-    
-    if regions_to_scan:
-        scanner.set_region_filter(regions_to_scan)
-    
-    if ignore_exceptions:
-        scanner.set_ignore_exceptions(True)
-        print("Note: Ignoring exceptions - all public resources will be shown")
-    
-    # Determine organization configuration
+    # Determine organization configuration first (needed for region lookup)
     org_config = None
     scan_organization = False
+    org_id_for_regions = None
     
     if organization is not None:
         scan_organization = True
@@ -240,6 +212,7 @@ def scan(profile, organization, role_name, services, regions, tag_match, ignore_
             sys.exit(1)
         
         print(f"Using organization: {org_config.get('name', organization)}")
+        org_id_for_regions = organization
         
         # Determine which profile to use for member accounts
         member_profile = profile  # Command line profile takes precedence
@@ -258,6 +231,36 @@ def scan(profile, organization, role_name, services, regions, tag_match, ignore_
         # Override role_name if not specified and organization has one
         if not role_name and org_config.get('role_name'):
             role_name = org_config.get('role_name')
+    
+    # Parse regions to scan (after organization config is determined)
+    regions_to_scan = None
+    if regions:
+        if regions.lower() == 'all':
+            regions_to_scan = None  # Scan all regions
+        elif ',' in regions:
+            # Comma-separated list of regions
+            regions_to_scan = [r.strip() for r in regions.split(',')]
+        else:
+            # Try to load named region list from config (organization-specific first)
+            region_list = config.get_region_list(regions, org_id=org_id_for_regions)
+            if region_list:
+                regions_to_scan = region_list
+                source = "organization" if org_id_for_regions and config.get_organization(org_id_for_regions).get('region_lists', {}).get(regions) else "global"
+                print(f"Using region list '{regions}' from {source} config: {', '.join(region_list)}")
+            else:
+                # Treat as single region
+                regions_to_scan = [regions]
+    
+    # Set scanner filters
+    if services_to_scan:
+        scanner.set_service_filter(services_to_scan)
+    
+    if regions_to_scan:
+        scanner.set_region_filter(regions_to_scan)
+    
+    if ignore_exceptions:
+        scanner.set_ignore_exceptions(True)
+        print("Note: Ignoring exceptions - all public resources will be shown")
     
     # Default role name if still not set
     if not role_name:

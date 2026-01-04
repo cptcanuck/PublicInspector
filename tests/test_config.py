@@ -192,3 +192,55 @@ class TestConfig:
         finally:
             if os.path.exists(config_file):
                 os.unlink(config_file)
+    
+    def test_organization_specific_region_lists(self):
+        """Test organization-specific region lists."""
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            config_file = f.name
+        
+        try:
+            config = Config(config_file)
+            
+            # Set global region list
+            config.set_region_list('all_used', ['us-east-1', 'us-west-2'])
+            
+            # Add organization with custom region lists
+            config.add_organization(
+                org_id='org1',
+                name='Organization 1',
+                profile='org1-profile',
+                region_lists={
+                    'all_used': ['ca-central-1', 'us-east-1'],
+                    'ca_only': ['ca-central-1']
+                }
+            )
+            
+            # Add organization without region lists
+            config.add_organization(
+                org_id='org2',
+                name='Organization 2',
+                profile='org2-profile'
+            )
+            
+            # Test org-specific region list takes precedence
+            org1_regions = config.get_region_list('all_used', org_id='org1')
+            assert org1_regions == ['ca-central-1', 'us-east-1']
+            
+            # Test org-specific unique region list
+            ca_only = config.get_region_list('ca_only', org_id='org1')
+            assert ca_only == ['ca-central-1']
+            
+            # Test fallback to global when org doesn't have region list
+            org2_regions = config.get_region_list('all_used', org_id='org2')
+            assert org2_regions == ['us-east-1', 'us-west-2']
+            
+            # Test non-existent region list returns None
+            nonexistent = config.get_region_list('nonexistent', org_id='org1')
+            assert nonexistent is None
+            
+            # Test without org_id uses global
+            global_regions = config.get_region_list('all_used')
+            assert global_regions == ['us-east-1', 'us-west-2']
+        finally:
+            if os.path.exists(config_file):
+                os.unlink(config_file)

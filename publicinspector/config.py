@@ -284,16 +284,29 @@ class Config:
     
     # Region list methods
     
-    def get_region_list(self, list_name):
+    def get_region_list(self, list_name, org_id=None):
         """
         Get a named region list from configuration.
         
+        First checks organization-specific region lists (if org_id provided),
+        then falls back to global region lists for backward compatibility.
+        
         Args:
             list_name: Name of the region list
+            org_id: Optional organization ID to check for org-specific region lists
             
         Returns:
             List of region names, or None if not found
         """
+        # First try organization-specific region lists
+        if org_id:
+            org_config = self.get_organization(org_id)
+            if org_config and 'region_lists' in org_config:
+                org_region_list = org_config['region_lists'].get(list_name)
+                if org_region_list:
+                    return org_region_list
+        
+        # Fall back to global region lists for backward compatibility
         region_lists = self.config_data.get('region_lists', {})
         return region_lists.get(list_name)
     
@@ -323,7 +336,7 @@ class Config:
     
     def add_organization(self, org_id, name, profile=None, management_profile=None, 
                         management_account_id=None, role_name='OrganizationAccountAccessRole', 
-                        description=''):
+                        description='', region_lists=None):
         """
         Add or update an organization configuration.
         
@@ -335,11 +348,12 @@ class Config:
             management_account_id: Management account ID (optional)
             role_name: IAM role name to assume in member accounts
             description: Description of this organization
+            region_lists: Dictionary of named region lists for this organization (optional)
         """
         if 'organizations' not in self.config_data:
             self.config_data['organizations'] = {}
         
-        self.config_data['organizations'][org_id] = {
+        org_config = {
             'name': name,
             'profile': profile,
             'management_profile': management_profile,
@@ -347,6 +361,12 @@ class Config:
             'role_name': role_name,
             'description': description
         }
+        
+        # Add region lists if provided
+        if region_lists:
+            org_config['region_lists'] = region_lists
+        
+        self.config_data['organizations'][org_id] = org_config
     
     def get_organization(self, org_id):
         """

@@ -537,6 +537,8 @@ publicinspector add-org prod-org \
 
 #### Organization Configuration Format
 
+Organizations can define their own region lists, allowing different orgs to use different standard regions:
+
 ```json
 {
   "organizations": {
@@ -545,25 +547,57 @@ publicinspector add-org prod-org \
       "management_profile": "AW-Payer-ReadOnly",
       "profile": "ReadOnly",
       "role_name": "OrganizationAccountAccessRole",
-      "description": "Uses separate profiles for payer and member accounts"
+      "description": "Uses separate profiles for payer and member accounts",
+      "region_lists": {
+        "all_used": ["us-east-1", "us-west-2", "ca-central-1"],
+        "us_only": ["us-east-1", "us-west-2"],
+        "ca_only": ["ca-central-1"]
+      }
     },
     "prod-org": {
       "name": "Production Organization",
       "profile": "prod-profile",
       "management_profile": null,
       "role_name": "OrganizationAccountAccessRole",
-      "description": "Uses single profile for all operations"
+      "description": "Uses single profile for all operations",
+      "region_lists": {
+        "all_used": ["us-east-1", "us-west-2", "eu-west-1", "ap-southeast-2"],
+        "us_regions": ["us-east-1", "us-east-2", "us-west-1", "us-west-2"],
+        "eu_regions": ["eu-west-1", "eu-west-2", "eu-central-1"]
+      }
     }
   },
-  "default_organization": "prod-org"
+  "default_organization": "prod-org",
+  "region_lists": {
+    "all_used": ["us-east-1", "us-west-2", "eu-west-1"],
+    "us_only": ["us-east-1", "us-east-2", "us-west-1", "us-west-2"]
+  }
 }
 ```
 
 **Key Points:**
 - `management_profile`: AWS profile used to access the management/payer account for listing organization accounts
 - `profile`: AWS profile used to access member accounts (via role assumption)
+- `region_lists`: Organization-specific named region lists (e.g., "all_used", "us_only")
 - If `management_profile` is not specified, `profile` is used for both operations
 - Command-line `--profile` option overrides the organization's member account profile
+- When scanning an organization, region lists are looked up in the organization config first, then fall back to global region lists
+- Global `region_lists` provide backward compatibility and defaults for non-organization scans
+
+#### Region List Priority
+
+When using the `--regions` flag with a named region list:
+1. **Organization-specific region lists** (if `--org` is used): Checked first in the organization's config
+2. **Global region lists**: Fallback for backward compatibility or when not using `--org`
+
+Example:
+```bash
+# Uses "all_used" from AW organization config
+publicinspector scan --org AW --regions all_used --service s3
+
+# Uses "all_used" from global config (no org specified)
+publicinspector scan --regions all_used --service s3
+```
 
 #### Scanning Organizations
 
