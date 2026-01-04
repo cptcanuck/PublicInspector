@@ -31,6 +31,7 @@ class Scanner:
         self.config = Config(config_file)
         self.service_filter = None
         self.region_filter = None
+        self.ignore_exceptions = False
     
     def scan_account(self, session, account_id=None):
         """
@@ -92,11 +93,15 @@ class Scanner:
                     print(f"  {plugin.get_name()}: Error - {e}")
         
         # Filter out approved exceptions
-        filtered_findings = self._filter_exceptions(all_findings)
-        
-        excluded_count = len(all_findings) - len(filtered_findings)
-        if excluded_count > 0:
-            print(f"  Excluded {excluded_count} approved exceptions")
+        if self.ignore_exceptions:
+            print(f"  Ignoring exception filtering - showing all public resources")
+            filtered_findings = all_findings
+        else:
+            filtered_findings = self._filter_exceptions(all_findings)
+            
+            excluded_count = len(all_findings) - len(filtered_findings)
+            if excluded_count > 0:
+                print(f"  Excluded {excluded_count} approved exceptions")
         
         return filtered_findings
     
@@ -175,10 +180,16 @@ class Scanner:
                     # Include expired exceptions in findings with a note
                     finding['exception_expired'] = True
                     finding['exception_reason'] = reason
+                    finding['is_exception'] = False
                     filtered.append(finding)
                 else:
-                    # Skip valid exceptions
-                    pass
+                    # Skip valid exceptions (unless ignore_exceptions is True)
+                    if self.ignore_exceptions:
+                        # Mark as exception but still include it
+                        finding['is_exception'] = True
+                        finding['exception_reason'] = reason
+                        filtered.append(finding)
+                    # else: don't include (filtered out)
             else:
                 # Include non-exception findings
                 filtered.append(finding)
@@ -220,6 +231,15 @@ class Scanner:
             regions: List of region names to scan, or a named region list from config
         """
         self.region_filter = regions
+    
+    def set_ignore_exceptions(self, ignore):
+        """
+        Set whether to ignore exceptions during scanning.
+        
+        Args:
+            ignore: Boolean - if True, all resources will be reported including exceptions
+        """
+        self.ignore_exceptions = ignore
     
     def get_regions_to_scan(self, plugin):
         """

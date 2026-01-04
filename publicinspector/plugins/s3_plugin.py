@@ -107,6 +107,15 @@ class S3Plugin(AWSBasePlugin):
             except Exception:
                 pass
             
+            # Get bucket tags
+            tags = {}
+            try:
+                tag_response = s3_client.get_bucket_tagging(Bucket=bucket_name)
+                for tag in tag_response.get('TagSet', []):
+                    tags[tag['Key']] = tag['Value']
+            except Exception:
+                pass
+            
             # If any public access found, create a finding
             if public_access_reasons:
                 finding = {
@@ -119,7 +128,8 @@ class S3Plugin(AWSBasePlugin):
                     'severity': 'high',
                     'details': {
                         'bucket_name': bucket_name,
-                        'reasons': public_access_reasons
+                        'reasons': public_access_reasons,
+                        'tags': tags
                     }
                 }
                 findings.append(finding)

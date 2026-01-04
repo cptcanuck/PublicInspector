@@ -60,6 +60,11 @@ def cli():
     help='Filter accounts by environment tag value (e.g., prod, production, non-production)'
 )
 @click.option(
+    '--ignore-exceptions',
+    is_flag=True,
+    help='Show all public resources including those marked as exceptions'
+)
+@click.option(
     '--list-services',
     is_flag=True,
     help='List available services and exit'
@@ -104,7 +109,7 @@ def cli():
     is_flag=True,
     help='List available scanner plugins and exit (deprecated: use --list-services)'
 )
-def scan(profile, organization, role_name, services, regions, tag_match, list_services, list_regions, list_orgs,
+def scan(profile, organization, role_name, services, regions, tag_match, ignore_exceptions, list_services, list_regions, list_orgs,
          output_format, output, max_workers, config_file, list_plugins):
     """
     Scan AWS accounts for publicly exposed resources.
@@ -119,6 +124,9 @@ def scan(profile, organization, role_name, services, regions, tag_match, list_se
         
         # Scan organization accounts tagged as production, only S3 in specific regions
         publicinspector scan --org prod-org --tag-match prod --service s3 --regions all_used
+        
+        # Show all public resources including exceptions
+        publicinspector scan --ignore-exceptions
         
         # Scan default organization
         publicinspector scan --org default
@@ -205,6 +213,10 @@ def scan(profile, organization, role_name, services, regions, tag_match, list_se
     
     if regions_to_scan:
         scanner.set_region_filter(regions_to_scan)
+    
+    if ignore_exceptions:
+        scanner.set_ignore_exceptions(True)
+        print("Note: Ignoring exceptions - all public resources will be shown")
     
     # Determine organization configuration
     org_config = None

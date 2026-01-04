@@ -79,6 +79,11 @@ class SecurityGroupPlugin(AWSBasePlugin):
         sg_id = sg.get('GroupId', 'unknown')
         sg_name = sg.get('GroupName', 'unknown')
         
+        # Get tags
+        tags = {}
+        for tag in sg.get('Tags', []):
+            tags[tag['Key']] = tag['Value']
+        
         # Check ingress rules
         ingress_rules = sg.get('IpPermissions', [])
         
@@ -123,7 +128,8 @@ class SecurityGroupPlugin(AWSBasePlugin):
                         'protocol': protocol,
                         'from_port': from_port,
                         'to_port': to_port,
-                        'public_cidrs': public_ips
+                        'public_cidrs': public_ips,
+                        'tags': tags
                     }
                 }
                 findings.append(finding)

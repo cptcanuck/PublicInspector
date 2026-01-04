@@ -65,13 +65,20 @@ class OutputFormatter:
                 if len(tags) > 2:
                     tag_str += '...'
             
+            # Check if this is an exception
+            public_access = finding.get('public_access', 'unknown')
+            if finding.get('exception_expired'):
+                public_access = f"{public_access} [EXCEPTION EXPIRED]"
+            elif finding.get('is_exception'):
+                public_access = f"{public_access} [APPROVED EXCEPTION]"
+            
             row = [
                 finding.get('account_id', 'unknown'),
                 finding.get('region', 'unknown'),
                 finding.get('resource_type', 'unknown'),
                 finding.get('resource_name', 'unknown'),
                 severity_colored,
-                finding.get('public_access', 'unknown'),
+                public_access,
                 tag_str
             ]
             table_data.append(row)
